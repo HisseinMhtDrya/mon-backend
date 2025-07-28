@@ -1,0 +1,20 @@
+{
+  "name": "mon-backend",
+  "version": "1.0.0",
+  "description": "Backend Node.js avec Express tournant sur le port 3000",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js"
+  },
+  "author": "Hissein Mht Drya",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^17.2.0",
+    "express": "^4.18.2",
+    "mongoose": "^8.16.4"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.0"
+  }
+}

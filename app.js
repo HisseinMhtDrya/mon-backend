@@ -3,136 +3,112 @@ const express = require("express");
 const mongoose = require("mongoose");
 
 const app = express();
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 3000;
 
-// Connect to MongoDB database
+// Connexion MongoDB
 mongoose
   .connect(process.env.MONGODB_URI)
-  .then(() => {
-    console.log("Successfully connected to database");
-  })
-  .catch((error) => {
-    console.error(error);
-  });
+  .then(() => console.log("✅ Connecté à la base de données"))
+  .catch((err) => console.error("❌ Erreur MongoDB:", err));
 
-// Create a schema
-const schema = mongoose.Schema(
+// Schéma Product
+const productSchema = new mongoose.Schema(
   {
-    name: {
+    productName: { type: String, required: true },
+    price: { type: Number, required: true },
+    stockStatus: {
       type: String,
-      required: true,
-    },
-    age: {
-      type: Number,
+      enum: ["en stock", "petite stock", "pas en stock"],
       required: true,
     },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
-// create students model
-const studentModel = mongoose.model("students", schema);
+// Modèle Product
+const productModel = mongoose.model("products", productSchema);
 
-// Middleware to handle any json payload data sent from a client
+// Middleware JSON
 app.use(express.json());
 
-// Routes
+// ------------------ Routes CRUD ------------------
 
-// Get all students
-app.get("/students", async (req, res) => {
-  const students = await studentModel.find();
-
-  res.send({
-    students,
-  });
+// GET all products
+app.get("/products", async (req, res) => {
+  const products = await productModel.find();
+  res.send({ products });
 });
 
-// Get a single student by its ID
-app.get("/students/:id", async (req, res) => {
-  const id = req.params.id;
-
-  const student = await studentModel.findById(id); // .find({_id: studentId})
-
-  if (!student) {
-    res.status(404).send({
-      message: "Student not found.",
-    });
-    return;
-  }
-
-  res.send({ student });
-});
-
-// Add a new students
-app.post("/students", async (req, res) => {
-  const student = req.body;
-  //   console.log(student);
-
+// GET product by ID
+app.get("/products/:id", async (req, res) => {
   try {
-    await studentModel.create(student);
-  } catch (error) {
-    res.send({
-      message: error.message,
-    });
-    return;
+    const product = await productModel.findById(req.params.id);
+    if (!product) return res.status(404).send({ message: "Produit introuvable" });
+    res.send({ product });
+  } catch (err) {
+    res.status(400).send({ message: "ID invalide" });
   }
-
-  res.send({
-    message: "Student added successfully",
-    student,
-  });
 });
 
-// Update a student
-app.patch("/students/:id", async (req, res) => {
-  const id = req.params.id;
-  const { name, age } = req.body;
-
-  const studentExists = await studentModel.findById(id);
-
-  if (!studentExists) {
-    res.status(404).send("Student does not exist");
-    return;
+// POST add a new product
+app.post("/products", async (req, res) => {
+  try {
+    const product = await productModel.create(req.body);
+    res.status(201).send({ message: "Produit ajouté avec succès", product });
+  } catch (err) {
+    res.status(400).send({ message: err.message });
   }
+});
 
-  const updatedStudent = await studentModel.findByIdAndUpdate(
-    id,
-    {
-      name,
-      age,
-    },
-    {
-      new: true,
+// PATCH update product (except stockStatus)
+app.patch("/products/:id", async (req, res) => {
+  try {
+    const { productName, price } = req.body;
+    const updatedProduct = await productModel.findByIdAndUpdate(
+      req.params.id,
+      { productName, price },
+      { new: true }
+    );
+    if (!updatedProduct) return res.status(404).send({ message: "Produit introuvable" });
+    res.send({ message: "Produit mis à jour", updatedProduct });
+  } catch (err) {
+    res.status(400).send({ message: err.message });
+  }
+});
+
+// PATCH update stockStatus only
+app.patch("/products/:id/:status", async (req, res) => {
+  try {
+    const status = req.params.status;
+    if (!["en stock", "petite stock", "pas en stock"].includes(status)) {
+      return res.status(400).send({ message: "Valeur stockStatus invalide" });
     }
-  );
 
-  res.send({
-    message: "Student updated successfully",
-    updatedStudent,
-  });
-});
+    const updatedProduct = await productModel.findByIdAndUpdate(
+      req.params.id,
+      { stockStatus: status },
+      { new: true }
+    );
 
-// Delete a student
-app.delete("/students/:id", async (req, res) => {
-  const id = req.params.id;
-
-  const deletedStudent = await studentModel.findByIdAndDelete(id);
-
-  if (!deletedStudent) {
-    res.status(401).send({
-      message: "Forbidden action",
-    });
-    return;
+    if (!updatedProduct) return res.status(404).send({ message: "Produit introuvable" });
+    res.send({ message: "Stock mis à jour", updatedProduct });
+  } catch (err) {
+    res.status(400).send({ message: err.message });
   }
-  res.send({
-    message: "Student deleted successfully",
-    deletedStudent,
-  });
 });
 
-// Expose the server on the defined port
+// DELETE a product
+app.delete("/products/:id", async (req, res) => {
+  try {
+    const deletedProduct = await productModel.findByIdAndDelete(req.params.id);
+    if (!deletedProduct) return res.status(404).send({ message: "Produit introuvable" });
+    res.send({ message: "Produit supprimé avec succès", deletedProduct });
+  } catch (err) {
+    res.status(400).send({ message: err.message });
+  }
+});
+
+// Lancement serveur
 app.listen(PORT, () => {
-  console.log(`Server listening on port ${PORT}`);
+  console.log(`Serveur démarré sur http://localhost:${PORT}`);
 });
